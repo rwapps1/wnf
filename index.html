@@ -313,29 +313,44 @@ function showToast(msg){
 }
 
 /* ---------- Weekly auto-reset (Thursday) ---------- */
-function latestThursdayISO(){
+function localDateStr(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function latestThursdayLocal(){
   const now = new Date();
   const day = now.getDay();
   const diff = (day - 4 + 7) % 7;
   const thursday = new Date(now);
   thursday.setDate(now.getDate() - diff);
   thursday.setHours(0,0,0,0);
-  return thursday.toISOString().slice(0,10);
+  return localDateStr(thursday);
 }
 
 async function checkWeeklyReset(){
   if(!db) return;
-  const period = latestThursdayISO();
+  const period = latestThursdayLocal();
   const metaRef = db.collection('meta').doc('settings');
-  const snap = await metaRef.get();
-  const last = snap.exists ? snap.data().lastResetWeekStart : null;
-  if(last === period) return;
-  const batch = db.batch();
-  const playersSnap = await db.collection('players').get();
-  playersSnap.forEach(doc=>{ batch.update(doc.ref, {status:'tbc'}); });
-  batch.set(metaRef, {lastResetWeekStart: period}, {merge:true});
-  await batch.commit();
-  showToast('New week — everyone reset to No Response');
+  try{
+    const shouldReset = await db.runTransaction(async (tx)=>{
+      const snap = await tx.get(metaRef);
+      const last = snap.exists ? snap.data().lastResetWeekStart : null;
+      if(last === period) return false;
+      tx.set(metaRef, {lastResetWeekStart: period}, {merge:true});
+      return true;
+    });
+    if(shouldReset){
+      const batch = db.batch();
+      const playersSnap = await db.collection('players').get();
+      playersSnap.forEach(doc=>{ batch.update(doc.ref, {status:'tbc'}); });
+      await batch.commit();
+      showToast('New week — everyone reset to No Response');
+    }
+  }catch(e){
+    console.error('weekly reset check failed', e);
+  }
 }
 
 /* ---------- Squad rendering ---------- */
