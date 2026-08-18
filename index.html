@@ -9,6 +9,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
   :root{
@@ -200,6 +201,18 @@
 
   .empty-note{ text-align:center; color:var(--chalk-dim); font-size:12px; padding:16px 0; }
 
+  .share-btn{
+    margin-top:16px; width:100%; background:#25D366; color:#08210f; border:none; border-radius:10px;
+    padding:13px 0; font-family:'Teko', sans-serif; font-size:19px; letter-spacing:0.03em; text-transform:uppercase;
+    font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .share-btn:active{ opacity:0.85; }
+
+  .capturing, .capturing h3, .capturing .cnt, .capturing .nm, .capturing button{
+    font-family: Arial, Helvetica, sans-serif !important;
+    letter-spacing: 0 !important;
+  }
+
   .toast{
     position:fixed; bottom:16px; left:50%; transform:translateX(-50%) translateY(10px);
     background:var(--pitch-mid); border:1px solid var(--pitch-line); color:var(--chalk);
@@ -257,7 +270,7 @@
       <div class="chip-wrap drop-zone" id="unassignedList" data-team="unassigned"></div>
     </div>
 
-    <div class="teams-cols">
+    <div class="teams-cols" id="teamsCapture">
       <div class="team-col a">
         <h3>Team A <span class="cnt" id="cntA">0</span></h3>
         <div class="drop-zone" id="teamAList" data-team="a"></div>
@@ -267,6 +280,8 @@
         <div class="drop-zone" id="teamBList" data-team="b"></div>
       </div>
     </div>
+
+    <button class="share-btn" id="shareTeamsBtn">Share Teams to WhatsApp</button>
   </div>
 
 </div>
@@ -679,6 +694,50 @@ function onDragEnd(e){
 document.addEventListener('pointerdown', e=>{
   const handle = e.target.closest('.handle');
   if(handle) startDrag(e, handle);
+});
+
+/* ---------- Share teams as image ---------- */
+document.getElementById('shareTeamsBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('shareTeamsBtn');
+  const original = btn.textContent;
+  btn.textContent = 'Preparing…';
+  btn.disabled = true;
+  try{
+    const target = document.getElementById('teamsCapture');
+    target.classList.add('capturing');
+    if(document.fonts && document.fonts.ready){ await document.fonts.ready; }
+    await new Promise(r=>setTimeout(r, 60));
+    const canvas = await html2canvas(target, {
+      backgroundColor: '#0B2416',
+      scale: 2
+    });
+    target.classList.remove('capturing');
+    canvas.toBlob(async (blob)=>{
+      if(!blob){ showToast('Could not create image'); btn.textContent = original; btn.disabled = false; return; }
+      const file = new File([blob], 'wnf-teams.png', {type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{
+          await navigator.share({files:[file], title:'Wednesday Night Football — Teams'});
+        }catch(err){
+          if(err.name !== 'AbortError') showToast('Share cancelled or failed');
+        }
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'wnf-teams.png'; a.click();
+        URL.revokeObjectURL(url);
+        showToast('Image saved — share it from your photos to WhatsApp');
+      }
+      btn.textContent = original;
+      btn.disabled = false;
+    }, 'image/png');
+  }catch(e){
+    console.error(e);
+    document.getElementById('teamsCapture').classList.remove('capturing');
+    showToast('Could not create image');
+    btn.textContent = original;
+    btn.disabled = false;
+  }
 });
 
 /* ---------- Firestore live subscriptions ---------- */
