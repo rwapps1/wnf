@@ -1,83 +1,695 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Wednesday Night Football</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z9EFLSPZFZ"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-    gtag('config', 'G-Z9EFLSPZFZ');
-  </script>
+<style>
+  :root{
+    --pitch-dark:#0B2416;
+    --pitch-mid:#12331F;
+    --pitch-line:#1B4229;
+    --chalk:#F4F1E8;
+    --chalk-dim:#9CB3A6;
+    --amber:#E8A33D;
+    --gold:#E3B23C;
+    --blue:#3E8FCC;
+    --red:#C0503D;
+    --green:#4FAE6D;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; height:100%; overflow-x:hidden;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(232,163,61,0.10), transparent 60%),
+      var(--pitch-dark);
+    color:var(--chalk);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .app{
+    width:100%;
+    max-width:480px;
+    min-height:100vh;
+    background:var(--pitch-dark);
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    border-left:1px solid rgba(244,241,232,0.06);
+    border-right:1px solid rgba(244,241,232,0.06);
+  }
 
-  <!-- The rest of your existing head content goes below -->
-  
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-<title>Palabra — Spanish Vocab Quiz</title>
-<link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#100A1E" />
-<link rel="icon" href="icon-192.png" />
-<link rel="apple-touch-icon" href="icon-192.png" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Palabra" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  header{ padding:14px 20px 8px; text-align:center; position:relative; }
+  .eyebrow{
+    font-family:'Space Mono', monospace; font-size:10px; letter-spacing:0.16em;
+    color:var(--chalk-dim); text-transform:uppercase;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .dot{width:6px; height:6px; border-radius:50%; background:var(--chalk-dim);}
+  .dot.live{background:var(--green); box-shadow:0 0 6px var(--green);}
+  h1{
+    font-family:'Teko', sans-serif; font-weight:600; font-size:30px;
+    letter-spacing:0.02em; margin:1px 0 0; line-height:1; text-transform:uppercase;
+  }
+  h1 span{color:var(--amber);}
 
-<!-- Firebase: Authentication + Firestore. This runs as an ES module, so it
-     can't share scope directly with the classic app script further down —
-     instead it publishes what's needed onto window.PalabraAuth and fires a
-     'palabra-firebase-ready' event once that's done, since module scripts
-     load asynchronously and may not be ready before the classic script's
-     boot code runs. -->
-<script type="module" src="js/firebase-auth.js"></script>
+  .tabs{ display:flex; margin:10px 20px 0; border:1px solid var(--pitch-line); border-radius:9px; overflow:hidden; }
+  .tab{
+    flex:1; text-align:center; padding:7px 0; font-family:'Teko', sans-serif; font-size:16px;
+    letter-spacing:0.04em; text-transform:uppercase; color:var(--chalk-dim); cursor:pointer;
+    background:var(--pitch-mid); transition:background .15s, color .15s;
+  }
+  .tab.active{background:var(--amber); color:#1a1204; font-weight:600;}
 
-<link rel="stylesheet" href="css/base.css" />
-<link rel="stylesheet" href="css/components.css" />
-<link rel="stylesheet" href="css/auth.css" />
-<link rel="stylesheet" href="css/quiz.css" />
-<link rel="stylesheet" href="css/memory.css" />
-<link rel="stylesheet" href="css/progress.css" />
-<link rel="stylesheet" href="css/celebration.css" />
-<link rel="stylesheet" href="css/daily-double.css" />
+  .scoreboard{ display:flex; gap:8px; margin:12px 20px 4px; }
+  .score-block{ flex:1; background:var(--pitch-mid); border:1px solid var(--pitch-line); border-radius:9px; padding:7px 6px 6px; text-align:center; }
+  .score-num{ font-family:'Space Mono', monospace; font-weight:700; font-size:21px; line-height:1; }
+  .score-label{ font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--chalk-dim); margin-top:3px; }
+  .score-block.playing .score-num{color:var(--green);}
+  .score-block.out .score-num{color:var(--red);}
+  .score-block.tbc .score-num{color:var(--amber);}
 
+  .squad{ flex:1; padding:4px 20px 100px; overflow-y:auto; display:none; }
+  .squad.active{display:block;}
+
+  .section-title{
+    font-family:'Teko', sans-serif; font-size:16px; letter-spacing:0.05em; text-transform:uppercase;
+    color:var(--chalk-dim); margin:12px 2px 2px; display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .section-title .hint{font-family:'Space Mono', monospace; font-size:11px; text-transform:none; letter-spacing:0;}
+
+  .player-row{
+    display:flex; align-items:center; justify-content:space-between; padding:8px 2px;
+    border-bottom:1px dashed rgba(244,241,232,0.14); gap:8px;
+  }
+  .player-row:last-child{border-bottom:none;}
+  .player-name{ font-size:14px; font-weight:500; display:flex; align-items:center; gap:6px; min-width:0; }
+  .player-name .del{ color:var(--chalk-dim); font-size:12px; cursor:pointer; opacity:.5; flex:0 0 auto; padding:2px 3px; }
+  .player-name .del:hover{opacity:1; color:var(--red);}
+  .player-name .txt{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  .status-toggle{ display:flex; border:1px solid var(--pitch-line); border-radius:7px; overflow:hidden; flex:0 0 auto; }
+  .status-btn{
+    font-family:'Space Mono', monospace; font-size:11px; font-weight:700; padding:5px 8px;
+    background:var(--pitch-mid); color:var(--chalk-dim); cursor:pointer; border-right:1px solid var(--pitch-line);
+    transition:background .15s, color .15s;
+  }
+  .status-btn:last-child{border-right:none;}
+  .status-btn.on.p{background:var(--green); color:#08210f;}
+  .status-btn.on.o{background:var(--red); color:#2a0f0a;}
+  .status-btn.on.t{background:var(--amber); color:#2a1c05;}
+
+  .empty-hint{ color:var(--chalk-dim); font-size:13px; padding:10px 2px; }
+
+  .add-bar{ position:relative; padding:4px 2px 2px; display:flex; gap:6px; }
+  .add-bar input{
+    flex:1; background:var(--pitch-mid); border:1px solid var(--pitch-line); border-radius:7px;
+    padding:8px 10px; color:var(--chalk); font-family:'Inter', sans-serif; font-size:13px;
+  }
+  .add-bar input::placeholder{color:var(--chalk-dim);}
+  .add-bar button{
+    background:var(--amber); color:#1a1204; border:none; border-radius:7px; padding:0 14px;
+    font-family:'Teko', sans-serif; font-size:16px; letter-spacing:0.03em; text-transform:uppercase;
+    font-weight:600; cursor:pointer;
+  }
+
+  .teams-screen{display:none; flex:1; flex-direction:column; padding:14px 10px 40px;}
+  .teams-screen.active{display:flex;}
+
+  .unassigned-box{
+    background:var(--pitch-mid); border:1px dashed var(--pitch-line); border-radius:10px;
+    padding:10px 10px 12px; margin-bottom:14px;
+  }
+  .unassigned-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .unassigned-head h3{
+    font-family:'Teko', sans-serif; font-size:19px; letter-spacing:0.03em; text-transform:uppercase;
+    margin:0; color:var(--amber);
+  }
+  .split-btn{
+    font-family:'Space Mono', monospace; font-size:11px; color:var(--amber);
+    border:1px solid var(--amber); border-radius:6px; padding:5px 9px; background:transparent; cursor:pointer;
+  }
+  .chip-wrap{ display:flex; flex-wrap:wrap; gap:7px; min-height:34px; }
+  .chip{
+    display:flex; align-items:center; gap:5px; background:var(--pitch-dark);
+    border:1px solid var(--pitch-line); border-radius:20px; padding:5px 5px 5px 9px;
+    font-size:12.5px; font-weight:500; touch-action:pan-y; max-width:100%;
+  }
+  .chip .handle{ color:var(--chalk-dim); font-size:12px; cursor:grab; padding:2px; touch-action:none; }
+  .chip .qbtn{
+    font-family:'Space Mono', monospace; font-size:9px; font-weight:700; border-radius:12px;
+    padding:4px 6px; cursor:pointer; border:1px solid var(--pitch-line); background:var(--pitch-mid); color:var(--chalk-dim);
+  }
+  .chip .qbtn.a{color:var(--gold); border-color:var(--gold);}
+  .chip .qbtn.b{color:var(--blue); border-color:var(--blue);}
+
+  .teams-cols{ display:flex; gap:6px; }
+  .team-col{
+    flex:1; min-width:0; background:var(--pitch-mid); border-radius:10px; border-top:3px solid var(--gold);
+    min-height:220px; padding:8px 4px 12px;
+  }
+  .team-col.b{border-top-color:var(--blue);}
+  .team-col h3{
+    font-family:'Teko', sans-serif; font-size:17px; letter-spacing:0.02em; text-transform:uppercase;
+    margin:2px 3px 8px; color:var(--gold); display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .team-col.b h3{color:var(--blue);}
+  .team-col h3 .cnt{font-family:'Space Mono',monospace; font-size:12px; color:var(--chalk-dim);}
+
+  .team-player{
+    background:var(--pitch-dark); border:1px solid var(--pitch-line); border-radius:7px;
+    padding:4px 3px; margin-bottom:6px; font-size:12.5px; font-weight:500;
+    display:flex; align-items:center; gap:1px; touch-action:pan-y; min-width:0;
+  }
+  .team-player.dragging{ opacity:0.35; }
+  .team-player .handle{
+    color:var(--chalk-dim); font-size:13px; letter-spacing:0; cursor:grab; padding:6px 3px;
+    touch-action:none; flex:0 0 auto; line-height:1;
+  }
+  .team-player .nm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; padding:0 1px;}
+  .team-player .ctl{ display:flex; align-items:center; gap:1px; flex:0 0 auto; }
+  .team-player button.mv, .team-player button.swap{
+    font-family:'Space Mono', monospace; font-size:9px; color:var(--chalk-dim);
+    border:1px solid var(--pitch-line); border-radius:5px; background:var(--pitch-mid);
+    width:19px; height:19px; cursor:pointer; padding:0; flex:0 0 auto;
+  }
+  .team-player button.mv:disabled{ opacity:0.25; }
+  .team-player button.swap{ color:var(--amber); border-color:var(--amber); width:19px; padding:0; font-weight:700; }
+
+  .drop-zone{min-height:20px; position:relative;}
+  .drag-ghost{
+    position:fixed; pointer-events:none; z-index:50; opacity:0.9;
+    background:var(--pitch-dark); border:1px solid var(--amber); border-radius:8px;
+    padding:9px 8px; font-size:14px; font-weight:500; box-shadow:0 6px 18px rgba(0,0,0,0.4);
+  }
+  .insert-line{ height:3px; background:var(--amber); border-radius:2px; margin:-1.5px 0; }
+
+  .empty-note{ text-align:center; color:var(--chalk-dim); font-size:12px; padding:16px 0; }
+
+  .toast{
+    position:fixed; bottom:16px; left:50%; transform:translateX(-50%) translateY(10px);
+    background:var(--pitch-mid); border:1px solid var(--pitch-line); color:var(--chalk);
+    font-size:12px; padding:8px 14px; border-radius:8px; opacity:0; transition:opacity .2s, transform .2s;
+    pointer-events:none; z-index:30;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  ::-webkit-scrollbar{width:0;}
+</style>
 </head>
 <body>
-<div id="app-loading">
-  <div class="loader-orb">
-    <div class="loader-orb-inner"></div>
-    <div class="loader-sweep"></div>
-  </div>
-  <div class="loader-caption">Cargando<span class="dots"><span></span><span></span><span></span></span></div>
-</div>
-<div id="app"></div>
+<div class="app">
 
-<script src="js/config.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/progress-xp.js"></script>
-<script src="js/state.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/cloud-sync.js"></script>
-<script src="js/data-loading.js"></script>
-<script src="js/word-selection.js"></script>
-<script src="js/conjugation-engine.js"></script>
-<script src="js/achievements.js"></script>
-<script src="js/game-quiz.js"></script>
-<script src="js/game-timeattack.js"></script>
-<script src="js/game-memory.js"></script>
-<script src="js/game-conjugate.js"></script>
-<script src="js/views/render-auth.js"></script>
-<script src="js/views/render-hub.js"></script>
-<script src="js/views/render-quiz.js"></script>
-<script src="js/views/render-timeattack.js"></script>
-<script src="js/views/render-memory.js"></script>
-<script src="js/views/render-conjugate.js"></script>
-<script src="js/views/render-progress.js"></script>
-<script src="js/views/render-dispatch.js"></script>
-<script src="js/navigation.js"></script>
-<script src="js/app-boot.js"></script>
+  <header>
+    <div class="eyebrow"><span class="dot" id="liveDot"></span><span id="connLabel">Connecting…</span></div>
+    <h1>Wednesday Night<span>·</span>Football</h1>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="squad">Squad Sheet</div>
+    <div class="tab" data-tab="teams">Teams</div>
+  </div>
+
+  <div class="squad active" id="squadScreen">
+    <div class="scoreboard">
+      <div class="score-block playing"><div class="score-num" id="cntPlaying">0</div><div class="score-label">Playing</div></div>
+      <div class="score-block out"><div class="score-num" id="cntOut">0</div><div class="score-label">Not Playing</div></div>
+      <div class="score-block tbc"><div class="score-num" id="cntTbc">0</div><div class="score-label">No Response</div></div>
+    </div>
+
+    <div class="section-title">Squad</div>
+    <div id="playerList"></div>
+    <div class="add-bar">
+      <input type="text" id="newPlayerInput" placeholder="Add a player…">
+      <button id="addPlayerBtn">Add</button>
+    </div>
+
+    <div class="section-title">Occasional Players <span class="hint" id="occHint">0 playing</span></div>
+    <div id="occList"></div>
+    <div class="add-bar">
+      <input type="text" id="newOccInput" placeholder="Add an occasional player…">
+      <button id="addOccBtn">Add</button>
+    </div>
+  </div>
+
+  <div class="teams-screen" id="teamsScreen">
+    <div class="unassigned-box">
+      <div class="unassigned-head">
+        <h3>Unassigned</h3>
+        <button class="split-btn" id="splitBtn">Split evenly</button>
+      </div>
+      <div class="chip-wrap drop-zone" id="unassignedList" data-team="unassigned"></div>
+    </div>
+
+    <div class="teams-cols">
+      <div class="team-col a">
+        <h3>Team A <span class="cnt" id="cntA">0</span></h3>
+        <div class="drop-zone" id="teamAList" data-team="a"></div>
+      </div>
+      <div class="team-col b">
+        <h3>Team B <span class="cnt" id="cntB">0</span></h3>
+        <div class="drop-zone" id="teamBList" data-team="b"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD7BBRy1xOna3sDEnILVPIP5AGmrKZejjU",
+  authDomain: "wednesday-night-football-list.firebaseapp.com",
+  projectId: "wednesday-night-football-list",
+  storageBucket: "wednesday-night-football-list.firebasestorage.app",
+  messagingSenderId: "656725886553",
+  appId: "1:656725886553:web:2d411ed1bb3ec73e2b5348"
+};
+
+let db = null;
+let firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  firebaseReady = true;
+}catch(e){
+  console.error('Firebase init failed', e);
+}
+
+const connLabel = document.getElementById('connLabel');
+const liveDot = document.getElementById('liveDot');
+function setConnStatus(ok, label){
+  connLabel.textContent = label;
+  liveDot.classList.toggle('live', ok);
+}
+
+let players = [];
+let teamA = [];
+let teamB = [];
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._h);
+  showToast._h = setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+/* ---------- Weekly auto-reset (Thursday) ---------- */
+function latestThursdayISO(){
+  const now = new Date();
+  const day = now.getDay();
+  const diff = (day - 4 + 7) % 7;
+  const thursday = new Date(now);
+  thursday.setDate(now.getDate() - diff);
+  thursday.setHours(0,0,0,0);
+  return thursday.toISOString().slice(0,10);
+}
+
+async function checkWeeklyReset(){
+  if(!db) return;
+  const period = latestThursdayISO();
+  const metaRef = db.collection('meta').doc('settings');
+  const snap = await metaRef.get();
+  const last = snap.exists ? snap.data().lastResetWeekStart : null;
+  if(last === period) return;
+  const batch = db.batch();
+  const playersSnap = await db.collection('players').get();
+  playersSnap.forEach(doc=>{ batch.update(doc.ref, {status:'tbc'}); });
+  batch.set(metaRef, {lastResetWeekStart: period}, {merge:true});
+  await batch.commit();
+  showToast('New week — everyone reset to No Response');
+}
+
+/* ---------- Squad rendering ---------- */
+const playerList = document.getElementById('playerList');
+const occList = document.getElementById('occList');
+const cntPlaying = document.getElementById('cntPlaying');
+const cntOut = document.getElementById('cntOut');
+const cntTbc = document.getElementById('cntTbc');
+const occHint = document.getElementById('occHint');
+
+function sortedAlpha(arr){
+  return [...arr].sort((a,b)=> a.name.localeCompare(b.name, undefined, {sensitivity:'base'}));
+}
+
+function playingPool(){
+  return sortedAlpha(players.filter(p=>p.status==='playing'));
+}
+
+function renderSquad(){
+  const main = sortedAlpha(players.filter(p=>!p.temporary));
+  const occ = sortedAlpha(players.filter(p=>p.temporary));
+
+  playerList.innerHTML = main.length ? '' : '<div class="empty-hint">No players yet — add your squad below.</div>';
+  main.forEach(pl=> playerList.appendChild(makePlayerRow(pl)));
+
+  occList.innerHTML = occ.length ? '' : '<div class="empty-hint">No occasional players yet.</div>';
+  occ.forEach(pl=> occList.appendChild(makePlayerRow(pl)));
+
+  const mainOut = main.filter(p=>p.status==='out').length;
+  const mainTbc = main.filter(p=>p.status==='tbc').length;
+  const mainPlaying = main.filter(p=>p.status==='playing').length;
+  const occPlaying = occ.filter(p=>p.status==='playing').length;
+
+  cntPlaying.textContent = mainPlaying + occPlaying;
+  cntOut.textContent = mainOut;
+  cntTbc.textContent = mainTbc;
+  occHint.textContent = `${occPlaying} playing`;
+}
+
+function makePlayerRow(pl){
+  const row = document.createElement('div');
+  row.className = 'player-row';
+  row.innerHTML = `
+    <div class="player-name">
+      <span class="del" data-id="${pl.id}">✕</span>
+      <span class="txt">${escapeHtml(pl.name)}</span>
+    </div>
+    <div class="status-toggle" data-id="${pl.id}">
+      <div class="status-btn p ${pl.status==='playing'?'on':''}" data-status="playing">P</div>
+      <div class="status-btn o ${pl.status==='out'?'on':''}" data-status="out">O</div>
+      <div class="status-btn t ${pl.status==='tbc'?'on':''}" data-status="tbc">?</div>
+    </div>`;
+  return row;
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.body.addEventListener('click', (e)=>{
+  const del = e.target.closest('.del');
+  if(del && (playerList.contains(del) || occList.contains(del))){
+    if(!db) return;
+    db.collection('players').doc(del.dataset.id).delete();
+    return;
+  }
+  const btn = e.target.closest('.status-btn');
+  if(btn && (playerList.contains(btn.closest('.player-row'))||occList.contains(btn.closest('.player-row')))){
+    if(!db) return;
+    const id = btn.parentElement.dataset.id;
+    db.collection('players').doc(id).update({status: btn.dataset.status});
+  }
+});
+
+document.getElementById('addPlayerBtn').addEventListener('click', ()=>addPlayer(false));
+document.getElementById('newPlayerInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addPlayer(false); });
+document.getElementById('addOccBtn').addEventListener('click', ()=>addPlayer(true));
+document.getElementById('newOccInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addPlayer(true); });
+
+function addPlayer(temporary){
+  const input = document.getElementById(temporary ? 'newOccInput' : 'newPlayerInput');
+  const name = input.value.trim();
+  if(!name || !db) return;
+  db.collection('players').add({name, status:'tbc', temporary: !!temporary, createdAt: Date.now()});
+  input.value = '';
+}
+
+/* ---------- Tabs ---------- */
+const tabs = document.querySelectorAll('.tab');
+const squadScreen = document.getElementById('squadScreen');
+const teamsScreen = document.getElementById('teamsScreen');
+
+tabs.forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    tabs.forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    if(tab.dataset.tab==='squad'){
+      squadScreen.classList.add('active');
+      teamsScreen.classList.remove('active');
+    } else {
+      squadScreen.classList.remove('active');
+      teamsScreen.classList.add('active');
+      renderTeams();
+    }
+  });
+});
+
+/* ---------- Teams: reconcile, render ---------- */
+const teamAList = document.getElementById('teamAList');
+const teamBList = document.getElementById('teamBList');
+const unassignedList = document.getElementById('unassignedList');
+
+function reconcile(){
+  const playingIds = new Set(playingPool().map(p=>p.id));
+  const beforeA = teamA.map(p=>p.id).join(',');
+  const beforeB = teamB.map(p=>p.id).join(',');
+  teamA = teamA.filter(p=>playingIds.has(p.id)).map(p=>players.find(x=>x.id===p.id)).filter(Boolean);
+  teamB = teamB.filter(p=>playingIds.has(p.id)).map(p=>players.find(x=>x.id===p.id)).filter(Boolean);
+  const changed = beforeA !== teamA.map(p=>p.id).join(',') || beforeB !== teamB.map(p=>p.id).join(',');
+  if(changed) saveTeams();
+}
+
+function currentUnassigned(){
+  const inTeams = new Set([...teamA, ...teamB].map(p=>p.id));
+  return playingPool().filter(p=>!inTeams.has(p.id));
+}
+
+function renderTeams(){
+  const unassigned = currentUnassigned();
+  unassignedList.innerHTML = unassigned.length ? '' : '<div class="empty-note" style="width:100%;">Nobody unassigned — everyone playing is on a team.</div>';
+  unassigned.forEach(p=> unassignedList.appendChild(makeChip(p)));
+
+  teamAList.innerHTML=''; teamBList.innerHTML='';
+  teamA.forEach((p,i)=> teamAList.appendChild(makeTeamPlayerEl(p,'a',i,teamA.length)));
+  teamB.forEach((p,i)=> teamBList.appendChild(makeTeamPlayerEl(p,'b',i,teamB.length)));
+  document.getElementById('cntA').textContent = teamA.length;
+  document.getElementById('cntB').textContent = teamB.length;
+  if(teamA.length===0) teamAList.innerHTML = '<div class="empty-note">Drag or add players here</div>';
+  if(teamB.length===0) teamBList.innerHTML = '<div class="empty-note">Drag or add players here</div>';
+}
+
+function makeChip(p){
+  const el = document.createElement('div');
+  el.className = 'chip';
+  el.dataset.id = p.id;
+  el.dataset.team = 'unassigned';
+  el.innerHTML = `<span class="handle">&#10021;</span><span>${escapeHtml(p.name)}</span><button class="qbtn a" data-id="${p.id}" data-dest="a">A</button><button class="qbtn b" data-id="${p.id}" data-dest="b">B</button>`;
+  return el;
+}
+
+function makeTeamPlayerEl(p, team, index, total){
+  const el = document.createElement('div');
+  el.className='team-player';
+  el.dataset.id = p.id;
+  el.dataset.team = team;
+  el.innerHTML = `
+    <span class="handle">&#8942;&#8942;</span>
+    <span class="nm">${escapeHtml(p.name)}</span>
+    <span class="ctl">
+      <button class="mv up" data-id="${p.id}" data-dir="up" ${index===0?'disabled':''}>&#9650;</button>
+      <button class="mv down" data-id="${p.id}" data-dir="down" ${index===total-1?'disabled':''}>&#9660;</button>
+      <button class="swap" data-id="${p.id}">&#8644;</button>
+    </span>`;
+  return el;
+}
+
+document.body.addEventListener('click', e=>{
+  const qbtn = e.target.closest('.qbtn');
+  if(qbtn){ placePlayer(qbtn.dataset.id, qbtn.dataset.dest, null); return; }
+
+  const swap = e.target.closest('.swap');
+  if(swap){
+    const id = swap.dataset.id;
+    const inA = teamA.find(x=>x.id==id);
+    placePlayer(id, inA ? 'b' : 'a', null);
+    return;
+  }
+
+  const mv = e.target.closest('.mv');
+  if(mv && !mv.disabled){
+    const id = mv.dataset.id;
+    const dir = mv.dataset.dir;
+    const inA = teamA.find(x=>x.id==id);
+    const arr = inA ? teamA : teamB;
+    const idx = arr.findIndex(x=>x.id==id);
+    const swapIdx = dir==='up' ? idx-1 : idx+1;
+    if(swapIdx<0 || swapIdx>=arr.length) return;
+    [arr[idx], arr[swapIdx]] = [arr[swapIdx], arr[idx]];
+    renderTeams();
+    saveTeams();
+  }
+
+  const splitBtn = e.target.closest('#splitBtn');
+  if(splitBtn){
+    const pool = currentUnassigned();
+    pool.forEach((p,i)=>{
+      if(teamA.length <= teamB.length) teamA.push(p); else teamB.push(p);
+    });
+    renderTeams();
+    saveTeams();
+  }
+});
+
+function placePlayer(id, dest, atIndex){
+  teamA = teamA.filter(x=>x.id!=id);
+  teamB = teamB.filter(x=>x.id!=id);
+  if(dest==='a' || dest==='b'){
+    const p = players.find(x=>x.id===id);
+    if(!p) return;
+    const target = dest==='a' ? teamA : teamB;
+    if(atIndex==null || atIndex>target.length) target.push(p);
+    else target.splice(atIndex, 0, p);
+  }
+  renderTeams();
+  saveTeams();
+}
+
+function saveTeams(){
+  if(!db) return;
+  db.collection('teams').doc('current').set({
+    teamA: teamA.map(p=>p.id),
+    teamB: teamB.map(p=>p.id)
+  });
+}
+
+function hydrateTeamsFromIds(ids){
+  return ids.map(id=> players.find(p=>p.id===id)).filter(Boolean);
+}
+
+/* ---------- Touch/mouse drag-and-drop reordering (Pointer Events) ---------- */
+let dragState = null;
+
+function startDrag(e, handle){
+  const row = handle.closest('.team-player, .chip');
+  const id = row.dataset.id;
+  e.preventDefault();
+  handle.setPointerCapture(e.pointerId);
+
+  const ghost = document.createElement('div');
+  ghost.className = 'drag-ghost';
+  ghost.style.width = Math.max(row.offsetWidth, 80) + 'px';
+  ghost.textContent = row.querySelector('.nm, span:nth-child(2)').textContent;
+  document.body.appendChild(ghost);
+
+  row.classList.add('dragging');
+
+  dragState = {id, ghost, pointerId: e.pointerId};
+  positionGhost(e.clientX, e.clientY);
+
+  document.addEventListener('pointermove', onDragMove);
+  document.addEventListener('pointerup', onDragEnd);
+}
+
+function positionGhost(x,y){
+  if(!dragState) return;
+  dragState.ghost.style.left = (x - dragState.ghost.offsetWidth/2) + 'px';
+  dragState.ghost.style.top = (y - 20) + 'px';
+}
+
+function onDragMove(e){
+  if(!dragState) return;
+  positionGhost(e.clientX, e.clientY);
+  const target = findDropTarget(e.clientX, e.clientY);
+  dragState.pendingDrop = target;
+  highlightInsertion(target);
+}
+
+function clearInsertMarkers(){
+  document.querySelectorAll('.insert-line').forEach(n=>n.remove());
+}
+
+function highlightInsertion(target){
+  clearInsertMarkers();
+  if(!target || target.team==='unassigned') return;
+  const line = document.createElement('div');
+  line.className = 'insert-line';
+  if(target.beforeEl) target.zone.insertBefore(line, target.beforeEl);
+  else target.zone.appendChild(line);
+}
+
+function findDropTarget(x,y){
+  const zones = [
+    {el: unassignedList, team:'unassigned'},
+    {el: teamAList, team:'a'},
+    {el: teamBList, team:'b'}
+  ];
+  for(const z of zones){
+    const rect = z.el.getBoundingClientRect();
+    if(x >= rect.left-15 && x <= rect.right+15 && y >= rect.top-10 && y <= rect.bottom+10){
+      if(z.team==='unassigned') return {zone: z.el, team:'unassigned', beforeEl:null};
+      const rows = [...z.el.querySelectorAll('.team-player')].filter(r=>r.dataset.id != dragState.id);
+      let beforeEl = null;
+      for(const r of rows){
+        const rr = r.getBoundingClientRect();
+        if(y < rr.top + rr.height/2){ beforeEl = r; break; }
+      }
+      return {zone: z.el, team: z.team, beforeEl};
+    }
+  }
+  return null;
+}
+
+function onDragEnd(e){
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup', onDragEnd);
+  clearInsertMarkers();
+  if(dragState){
+    dragState.ghost.remove();
+    document.querySelectorAll('.dragging').forEach(n=>n.classList.remove('dragging'));
+    const drop = dragState.pendingDrop;
+    if(drop){
+      if(drop.team==='unassigned'){
+        placePlayer(dragState.id, 'unassigned', null);
+      } else {
+        const targetArr = drop.team==='a' ? teamA : teamB;
+        let idx;
+        if(drop.beforeEl) idx = targetArr.findIndex(p=>p.id==drop.beforeEl.dataset.id);
+        else idx = targetArr.length;
+        placePlayer(dragState.id, drop.team, idx);
+      }
+    }
+  }
+  dragState = null;
+}
+
+document.addEventListener('pointerdown', e=>{
+  const handle = e.target.closest('.handle');
+  if(handle) startDrag(e, handle);
+});
+
+/* ---------- Firestore live subscriptions ---------- */
+function subscribeAll(){
+  if(!db){ setConnStatus(false, 'No connection — add Firebase config'); return; }
+
+  db.collection('players').onSnapshot(snap=>{
+    players = snap.docs.map(d=> ({id:d.id, ...d.data()}));
+    renderSquad();
+    reconcile();
+    renderTeams();
+    setConnStatus(true, 'Synced');
+  }, err=>{
+    console.error(err);
+    setConnStatus(false, 'Connection error');
+  });
+
+  db.collection('teams').doc('current').onSnapshot(doc=>{
+    if(!doc.exists) return;
+    const data = doc.data();
+    teamA = hydrateTeamsFromIds(data.teamA||[]);
+    teamB = hydrateTeamsFromIds(data.teamB||[]);
+    reconcile();
+    renderTeams();
+  });
+}
+
+(async function init(){
+  if(firebaseReady){
+    await checkWeeklyReset();
+    subscribeAll();
+  }
+})();
+</script>
 </body>
 </html>
