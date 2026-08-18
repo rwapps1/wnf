@@ -25,7 +25,7 @@
     --green:#4FAE6D;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; padding:0; height:100%; overflow-x:hidden;}
+  html,body{margin:0; padding:0; height:100%; overflow:hidden;}
   body{
     background:
       radial-gradient(ellipse 900px 500px at 50% -10%, rgba(232,163,61,0.10), transparent 60%),
@@ -40,11 +40,12 @@
   .app{
     width:100%;
     max-width:480px;
-    min-height:100vh;
+    height:100vh;
     background:var(--pitch-dark);
     display:flex;
     flex-direction:column;
     position:relative;
+    overflow:hidden;
     border-left:1px solid rgba(244,241,232,0.06);
     border-right:1px solid rgba(244,241,232,0.06);
   }
@@ -128,7 +129,7 @@
     font-weight:600; cursor:pointer;
   }
 
-  .teams-screen{display:none; flex:1; flex-direction:column; padding:14px 10px 40px;}
+  .teams-screen{display:none; flex:1; flex-direction:column; padding:14px 10px 40px; overflow-y:auto;}
   .teams-screen.active{display:flex;}
 
   .unassigned-box{
