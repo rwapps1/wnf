@@ -70,7 +70,11 @@
   }
   .tab.active{background:var(--amber); color:#1a1204; font-weight:600;}
 
-  .scoreboard{ display:flex; gap:8px; margin:12px 20px 4px; }
+  .scoreboard{
+    display:flex; gap:8px; margin:0 0 4px; padding:12px 20px 8px;
+    position:sticky; top:0; z-index:5; background:var(--pitch-dark);
+    border-bottom:1px solid var(--pitch-line);
+  }
   .score-block{ flex:1; background:var(--pitch-mid); border:1px solid var(--pitch-line); border-radius:9px; padding:7px 6px 6px; text-align:center; }
   .score-num{ font-family:'Space Mono', monospace; font-weight:700; font-size:21px; line-height:1; }
   .score-label{ font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--chalk-dim); margin-top:3px; }
@@ -78,8 +82,9 @@
   .score-block.out .score-num{color:var(--red);}
   .score-block.tbc .score-num{color:var(--amber);}
 
-  .squad{ flex:1; padding:4px 20px 100px; overflow-y:auto; display:none; }
+  .squad{ flex:1; padding:0 0 100px; overflow-y:auto; display:none; }
   .squad.active{display:block;}
+  .squad-body{ padding:0 20px; }
 
   .section-title{
     font-family:'Teko', sans-serif; font-size:16px; letter-spacing:0.05em; text-transform:uppercase;
@@ -226,6 +231,7 @@
       <div class="score-block tbc"><div class="score-num" id="cntTbc">0</div><div class="score-label">No Response</div></div>
     </div>
 
+    <div class="squad-body">
     <div class="section-title">Squad</div>
     <div id="playerList"></div>
     <div class="add-bar">
@@ -238,6 +244,7 @@
     <div class="add-bar">
       <input type="text" id="newOccInput" placeholder="Add an occasional player…">
       <button id="addOccBtn">Add</button>
+    </div>
     </div>
   </div>
 
